@@ -53,7 +53,8 @@ ComputeHexOrderAtomMod::ComputeHexOrderAtomMod(LAMMPS *lmp, int narg, char **arg
   ndegree = 6;
   nnn = 6;
   cutsq = 0.0;
-
+  zlo = 0.0;
+  zhi = 0.0;
   // process optional args
 
   int iarg = 3;
@@ -81,6 +82,11 @@ ComputeHexOrderAtomMod::ComputeHexOrderAtomMod(LAMMPS *lmp, int narg, char **arg
         error->all(FLERR,"Illegal compute hexorder/atom/mod command");
       cutsq = cutoff*cutoff;
       iarg += 2;
+    } else if (strcmp(arg[iarg],"z") == 0) {
+      if (iarg+3 > narg) error->all(FLERR,"Illegal compute hexorder/atom/mod command");
+      zlo = utils::numeric(FLERR,arg[iarg+1],false,lmp);
+      zhi = utils::numeric(FLERR,arg[iarg+2],false,lmp);
+      iarg += 3;
     } else error->all(FLERR,"Illegal compute hexorder/atom/mod command");
   }
 
@@ -174,7 +180,7 @@ void ComputeHexOrderAtomMod::compute_peratom()
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
     double* qn = qnarray[i]; // two dimensional array pf order paramteter Qn
-    if (mask[i] & groupbit) {
+    if ((mask[i] & groupbit) && (zlo < x[i][2]) && (x[i][2] < zhi)) {
       xtmp = x[i][0];
       ytmp = x[i][1];
       ztmp = x[i][2];
@@ -190,7 +196,7 @@ void ComputeHexOrderAtomMod::compute_peratom()
         memory->create(distsq,maxneigh,"hexorder/atom/mod:distsq");
         memory->create(nearest,maxneigh,"hexorder/atom/mod:nearest");
       }
-
+      
       // loop over list of all neighbors within force cutoff
       // distsq[] = distance sq to each
       // nearest[] = atom indices of neighbors
@@ -204,42 +210,47 @@ void ComputeHexOrderAtomMod::compute_peratom()
         dely = ytmp - x[j][1];
         delz = ztmp - x[j][2];
         rsq = delx*delx + dely*dely + delz*delz;
-        if ((rsq < cutsq) & (mask[j] & groupbit)) { // user modified
+        if ((rsq < cutsq) && (zlo < x[j][2]) && (x[j][2] < zhi)) {
           distsq[ncount] = rsq;
           nearest[ncount++] = j;
         }
       }
 
-      // if not nnn neighbors, order parameter = 0;
-
-      if (ncount < nnn) {
-        qn[0] = qn[1] = 0.0;
-        continue;
-      }
-
-      // if nnn > 0, use only nearest nnn neighbors
-
-      if (nnn > 0) {
+      if (ncount > nnn) {
         select2(nnn,ncount,distsq,nearest);
         ncount = nnn;
+        double usum = 0.0;
+        double vsum = 0.0;
+        for (jj = 0; jj < ncount; jj++) {
+          j = nearest[jj];
+          j &= NEIGHMASK;
+
+          delx = xtmp - x[j][0];
+          dely = ytmp - x[j][1];
+          double u, v;
+          calc_qn_complex(delx, dely, u, v);
+          usum += u;
+          vsum += v;
+        }
+        qn[0] = usum/ncount;
+        qn[1] = vsum/ncount;
+      } else {
+        double usum = 0.0;
+        double vsum = 0.0;
+        for (jj = 0; jj < ncount; jj++) {
+          j = nearest[jj];
+          j &= NEIGHMASK;
+
+          delx = xtmp - x[j][0];
+          dely = ytmp - x[j][1];
+          double u, v;
+          calc_qn_complex(delx, dely, u, v);
+          usum += u;
+          vsum += v;
+        }
+        qn[0] = usum/ncount;
+        qn[1] = vsum/ncount;
       }
-
-      double usum = 0.0;
-      double vsum = 0.0;
-
-      for (jj = 0; jj < ncount; jj++) {
-        j = nearest[jj];
-        j &= NEIGHMASK;
-
-        delx = xtmp - x[j][0];
-        dely = ytmp - x[j][1];
-        double u, v;
-        calc_qn_complex(delx, dely, u, v);
-        usum += u;
-        vsum += v;
-      }
-      qn[0] = usum/nnn;
-      qn[1] = vsum/nnn;
     } else qn[0] = qn[1] = 0.0;
   }
 }

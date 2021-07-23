@@ -36,6 +36,7 @@ class ComputeHexOrderAtomMod : public Compute {
  private:
   int nmax, maxneigh, ncol, nnn, ndegree;
   double cutsq;
+  double zlo, zhi;
   class NeighList *list;
   double *distsq;
   int *nearest;
