@@ -42,3 +42,29 @@ compute         hexorder_mod all hexorder/atom/mod degree ${ndgree} nnn ${nnn} c
 compute         hexorder_mod_ave dgroup reduce ave c_hexorder_mod[*]
 fix             1 dgroup ave/time Nevery Nrepeat Nfreq c_hexorder_mod_ave[*] file filename
 ```
+
+
+# compute voronoi/atom
+
+## how to install
+voro++が必要。voro++をダウンロードしてくる。そのフォルダ内のconfig.mkを確認。
+```sh
+# Installation directory
+PREFIX=/usr/local
+```
+がインストール先である。voro++のフォルダ内で
+```sh
+make
+```
+した後に
+```sh
+sudo make install
+```
+することでインストールが完了する。
+次にlammpsフォルダ内のlib/voronoiにあるMakefile.lammpsを確認する。ここでリンクを通す必要がある。上記のPREFIXが/usr/localである時には以下の様にする。
+```sh
+voronoi_SYSINC = -I/usr/local/include/voro++
+voronoi_SYSLIB = -lvoro++
+voronoi_SYSPATH = -L/usr/local/lib
+```
+あとは、普通のlammpsのパッケージと同様にインストールすれば良い。
